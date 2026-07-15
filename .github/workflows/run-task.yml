@@ -1,0 +1,46 @@
+name: Run Bot
+
+on:
+  repository_dispatch:
+    types: [run-task]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  process-row:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Chrome and xvfb
+        run: |
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get install -f -y
+          sudo apt-get install -y xvfb
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Process task
+        env:
+          DATA_CSV_B64: ${{ secrets.DATA_CSV_B64 }}
+          IMAP_USER: ${{ secrets.IMAP_USER }}
+          IMAP_PASS: ${{ secrets.IMAP_PASS }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          NEXT_ROW: ${{ github.event.client_payload.next_row }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          HEADLESS: "false"
+          FORM_URL: ${{ secrets.FORM_URL || '' }}
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python test_local.py
